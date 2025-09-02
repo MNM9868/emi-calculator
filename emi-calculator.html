@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EMI Calculator</title>
+
+  <!-- Chart.js for graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f4f6f9;
+      color: #333;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #0057b7;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    button {
+      background: #0057b7;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    button:hover {
+      background: #003f8c;
+    }
+
+    .results {
+      margin-top: 25px;
+      padding: 20px;
+      background: #f9fafc;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+    }
+
+    .results h2 {
+      margin-top: 0;
+      color: #444;
+    }
+
+    .breakdown {
+      margin-top: 20px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    th {
+      background-color: #f0f0f0;
+    }
+
+    canvas {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>EMI Calculator</h1>
+
+    <!-- Input Form -->
+    <div class="form-group">
+      <label for="principal">Loan Amount (₹)</label>
+      <input type="number" id="principal" placeholder="Enter loan amount" />
+    </div>
+
+    <div class="form-group">
+      <label for="rate">Annual Interest Rate (%)</label>
+      <input type="number" step="0.01" id="rate" placeholder="Enter interest rate" />
+    </div>
+
+    <div class="form-group">
+      <label for="tenure">Tenure (Months)</label>
+      <input type="number" id="tenure" placeholder="Enter tenure in months" />
+    </div>
+
+    <button onclick="calculateEMI()">Calculate EMI</button>
+
+    <!-- Results -->
+    <div class="results" id="results" style="display:none;">
+      <h2>Results</h2>
+      <p><strong>Monthly EMI:</strong> ₹<span id="emi"></span></p>
+      <p><strong>Total Interest:</strong> ₹<span id="totalInterest"></span></p>
+      <p><strong>Total Payment:</strong> ₹<span id="totalPayment"></span></p>
+
+      <!-- Charts -->
+      <canvas id="pieChart"></canvas>
+      <canvas id="barChart"></canvas>
+
+      <!-- Amortization Table -->
+      <div class="breakdown">
+        <h3>Amortization Schedule</h3>
+        <table id="scheduleTable">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>EMI (₹)</th>
+              <th>Principal (₹)</th>
+              <th>Interest (₹)</th>
+              <th>Balance (₹)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let pieChart, barChart;
+
+    function calculateEMI() {
+      const principal = parseFloat(document.getElementById("principal").value);
+      const rate = parseFloat(document.getElementById("rate").value) / 12 / 100;
+      const tenure = parseInt(document.getElementById("tenure").value);
+
+      if (!principal || !rate || !tenure) {
+        alert("Please enter all values");
+        return;
+      }
+
+      const emi = (principal * rate * Math.pow(1 + rate, tenure)) / (Math.pow(1 + rate, tenure) - 1);
+      const totalPayment = emi * tenure;
+      const totalInterest = totalPayment - principal;
+
+      document.getElementById("emi").innerText = emi.toFixed(2);
+      document.getElementById("totalInterest").innerText = totalInterest.toFixed(2);
+      document.getElementById("totalPayment").innerText = totalPayment.toFixed(2);
+
+      document.getElementById("results").style.display = "block";
+
+      generateCharts(principal, totalInterest);
+      generateSchedule(principal, rate, tenure, emi);
+    }
+
+    function generateCharts(principal, totalInterest) {
+      const ctx1 = document.getElementById("pieChart").getContext("2d");
+      const ctx2 = document.getElementById("barChart").getContext("2d");
+
+      if (pieChart) pieChart.destroy();
+      if (barChart) barChart.destroy();
+
+      pieChart = new Chart(ctx1, {
+        type: "pie",
+        data: {
+          labels: ["Principal", "Interest"],
+          datasets: [{
+            data: [principal, totalInterest],
+            backgroundColor: ["#0057b7", "#f39c12"]
+          }]
+        }
+      });
+
+      barChart = new Chart(ctx2, {
+        type: "bar",
+        data: {
+          labels: ["Principal", "Interest"],
+          datasets: [{
+            label: "Amount (₹)",
+            data: [principal, totalInterest],
+            backgroundColor: ["#0057b7", "#f39c12"]
+          }]
+        }
+      });
+    }
+
+    function generateSchedule(principal, rate, tenure, emi) {
+      const tbody = document.querySelector("#scheduleTable tbody");
+      tbody.innerHTML = "";
+      let balance = principal;
+
+      for (let i = 1; i <= tenure; i++) {
+        const interest = balance * rate;
+        const principalComponent = emi - interest;
+        balance -= principalComponent;
+
+        const row = `<tr>
+          <td>${i}</td>
+          <td>${emi.toFixed(2)}</td>
+          <td>${principalComponent.toFixed(2)}</td>
+          <td>${interest.toFixed(2)}</td>
+          <td>${balance > 0 ? balance.toFixed(2) : "0.00"}</td>
+        </tr>`;
+
+        tbody.innerHTML += row;
+      }
+    }
+  </script>
+</body>
+</html>
